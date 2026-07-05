@@ -1,1 +1,0 @@
-CreateObject("WScript.Shell").Run "C:\PROGRA~1\nodejs\node.exe C:\Users\USUARIO\Desktop\PROYEC~1\server.js", 0, False
