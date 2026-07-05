@@ -1,0 +1,77 @@
+========================================
+ESTADO DEL PROYECTO - AInova POS
+========================================
+Última actualización: 19/06/2026 ~16:30
+
+=== DESCRIPCIÓN ===
+Sistema POS multi-negocio. Cada persona tiene su propio
+usuario/contraseña (como red social). Cada usuario es dueño
+de un negocio con datos separados (productos, inventario,
+empleados, historial).
+
+=== TECNOLOGÍA ===
+- Frontend: React 18 + Vite 5
+- Iconos: Lucide React
+- Persistencia: localStorage (prefijo pos_{businessId}_)
+- Sin backend ni base de datos externa
+
+=== DUEÑOS (LOGIN) ===
+Dueño     | Usuario  | Contraseña   | Negocio             | Color
+Enrique   | enrique  | enrique123   | Pastelería AInova   | #1e40af
+Juan      | juan     | juan123      | Cafetería El Café   | #b45309
+
+=== EMPLEADOS POR NEGOCIO ===
+Pastelería AInova: Enrique (Dueño), Administrador, Caja 1, Caja 2
+Cafetería El Café: Juan (Dueño), Admin, Cajero
+
+=== FUNCIONALIDADES IMPLEMENTADAS ===
+[✓] Login tipo red social
+[✓] POS: Catálogo de 26 productos con búsqueda
+[✓] Carrito de compras ($ y Bs, tasa BCV)
+[✓] Pedidos Pendientes (cola de espera)
+[✓] Historial de ventas con resumen por vendedor
+[✓] CRUD de productos (nombre, código, precio, costo, categoría)
+[✓] Gestión de categorías
+[✓] Modo oscuro/claro
+[✓] Selección de vendedor por turno
+[✓] Tasa BCV configurable
+
+=== INVENTARIO Y ALMACENES ===
+[✓] Múltiples almacenes por negocio
+[✓] Stock independiente por producto y almacén
+[✓] Costo promedio por producto
+[✓] Entrada de inventario (cantidad + costo unitario)
+[✓] Descuento automático al vender (movimiento SALIDA)
+[✓] Bloqueo de venta si stock insuficiente
+[✓] Indicadores visuales: rojo (sin stock), naranja (bajo)
+[✓] Historial de movimientos (ENTRADA, SALIDA, RETIRO)
+
+=== ÚLTIMOS TESTS REALIZADOS ===
+1. Entrada de 10 unidades ARROZ 1KG a $1.20 ✓
+2. Venta de 1 unidad (stock 10→9) ✓
+3. Movimiento SALIDA registrado ✓
+4. Factura visible en Historial ✓
+5. Persistencia al recargar página ✓
+6. Bloqueo al agregar producto sin stock ✓
+7. Creación de almacén "Almacén Secundario" ✓
+8. Stock independiente por almacén ✓
+
+=== BUGS CORREGIDOS ===
+- stockOk() devolvía true cuando stock=0
+  Fix: App.jsx línea ~210, cambiado a current > 0 && qty <= current
+
+=== ARCHIVOS PRINCIPALES ===
+- C:\Users\USUARIO\Desktop\proyecto ia\src\App.jsx
+- C:\Users\USUARIO\Desktop\proyecto ia\src\index.css
+- C:\Users\USUARIO\Desktop\proyecto ia\src\data\products.js
+
+=== COMANDOS ===
+- npm run dev    → Iniciar servidor (localhost:5173)
+- npm run build  → Compilar para producción
+
+=== PRÓXIMOS PASOS POSIBLES ===
+- Migrar a IndexedDB con Dexie.js
+- Reportes de costo/ganancia en Historial
+- Transferencia entre almacenes
+- Exportar datos (CSV/Excel)
+- Menú de opciones para cambiar de negocio

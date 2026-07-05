@@ -1,0 +1,5 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "openrouter/qwen/qwen-3-coder:free",
+  "lsp": true
+}

@@ -1,0 +1,123 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' 
+      xmlns:w='urn:schemas-microsoft-com:office:word' 
+      xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+<meta charset="utf-8">
+<title>Resumen del Sistema POS AInova</title>
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+<w:View>Print</w:View>
+<w:Zoom>100</w:Zoom>
+<w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333333; margin: 40px; }
+h1 { color: #FF7E67; font-size: 22pt; border-bottom: 2px solid #FF7E67; padding-bottom: 5px; font-weight: bold; margin-top: 10px; margin-bottom: 15px; }
+h2 { color: #2C363F; font-size: 16pt; margin-top: 25px; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; font-weight: bold; }
+h3 { color: #22c55e; font-size: 12pt; margin-top: 15px; font-weight: bold; }
+p { font-size: 10.5pt; margin-bottom: 10px; }
+ul { margin-left: 20px; margin-bottom: 15px; }
+li { font-size: 10.5pt; margin-bottom: 6px; }
+table { border-collapse: collapse; width: 100%; margin-top: 15px; margin-bottom: 15px; }
+th, td { border: 1px solid #cccccc; text-align: left; padding: 10px; font-size: 10pt; }
+th { background-color: #f7f9fa; color: #2c363f; font-weight: bold; }
+.badge { background-color: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 9pt; font-family: monospace; }
+.badge-success { background-color: #dcfce7; color: #15803d; }
+.badge-primary { background-color: #ffedd5; color: #c2410c; }
+.feedback-container { border: 2px dashed #FF7E67; background-color: #fffaf9; padding: 20px; margin-top: 40px; border-radius: 8px; }
+.feedback-header { font-size: 14pt; color: #FF7E67; font-weight: bold; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Resumen del Sistema POS AInova (Punto de Venta)</h1>
+<p>Este documento detalla todas las funcionalidades, configuraciones y la estructura visual de la aplicación web POS de tu pastelería/tienda. Puedes abrir este archivo directamente en <strong>Microsoft Word</strong> para editarlo, agregar comentarios o escribir los ajustes y nuevas opciones que quieres que desarrollemos.</p>
+
+<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+
+<h2>1. Ficha Técnica y Tecnologías</h2>
+<ul>
+  <li><strong>Interfaz de Usuario:</strong> Diseñada en React (JavaScript moderno) estructurada en componentes dinámicos y limpios.</li>
+  <li><strong>Estilo Visual:</strong> CSS3 personalizado con variables de color modernas (tonos naranjas, grises elegantes y alertas en verde/rojo).</li>
+  <li><strong>Iconos del Sistema:</strong> Lucide React (iconos dinámicos y limpios para cada botón).</li>
+  <li><strong>Base de Datos Local:</strong> Guardado automático en <code>LocalStorage</code> del navegador. No perderás productos, categorías ni historial de ventas si recargas o cierras la pestaña de la aplicación.</li>
+</ul>
+
+<h2>2. Estructura y Vistas de la Aplicación</h2>
+
+<h3>A. Pantalla: Tomar Pedido (POS)</h3>
+<p>Es la interfaz de operaciones donde se pasan las ventas. Se compone de dos columnas:</p>
+<ul>
+  <li><strong>Sección Productos (Izquierda):</strong>
+    <ul>
+      <li>Buscador instantáneo por nombre de producto o código.</li>
+      <li>Tarjetas con el Nombre, Código (si aplica) y Precio ($ USD). Al hacer clic en un producto, este se agrega automáticamente al carrito con cantidad 1.</li>
+    </ul>
+  </li>
+  <li><strong>Sección Pedido Actual / Carrito (Derecha):</strong>
+    <ul>
+      <li>Lista de items en el carrito con cantidad actual (botones <strong>+</strong> y <strong>-</strong> para subir, bajar cantidad o remover).</li>
+      <li>Cálculo inmediato de totales: Total en Dólares ($) y su equivalente en Bolívares (Bs.) calculada en tiempo real.</li>
+      <li>Campo para escribir una "Referencia o Cliente" (Opcional para cobros rápidos, Obligatoria para pendientes).</li>
+      <li><strong style="color: #22c55e;">Botón "Cobrar Directo" (Verde):</strong> Registra y cobra la venta al instante. Abre una ventana emergente de cobro directo y al aceptar añade el registro al historial y vacía el carrito sin pasar por la pestaña de Pendientes.</li>
+      <li><strong style="color: #FF7E67;">Botón "Guardar como Pendiente" (Naranja):</strong> Coloca la orden en una lista de espera (útil si el cliente va a pagar después o falta despachar).</li>
+      <li><strong>Botón "Cancelar y Vaciar":</strong> Borra todo el carrito y limpia el campo de texto del cliente.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>B. Pantalla: Pedidos Pendientes</h3>
+<p>Permite ver las órdenes que han sido registradas para cobrarse después:</p>
+<ul>
+  <li>Tarjetas informativas de los pedidos con el nombre del cliente, productos y cantidades, cajero asignado, hora de inicio y monto total en dólares.</li>
+  <li><strong>Editar Pedido:</strong> Abre un panel modal donde puedes agregar nuevos productos de la lista a esa orden específica, modificar cantidades o eliminar artículos antes de cobrarla.</li>
+  <li><strong>Cobrar:</strong> Lanza la ventana de pago para esa orden en específico, finalizando el cobro y moviéndola al Historial.</li>
+</ul>
+
+<h3>C. Pantalla: Cierre / Historial</h3>
+<p>Diseñada para llevar el arqueo y control diario:</p>
+<ul>
+  <li><strong>Resumen de ventas por Cajero:</strong> Muestra cuánto dinero (en dólares y en bolívares) ha cobrado cada caja o turno individualmente.</li>
+  <li><strong>Historial detallado:</strong> Muestra las facturas cobradas con fecha y hora exacta del pago, nombre/referencia asignada al cliente, cajero que la procesó, total en USD ($) y total en Bolívares (Bs.).</li>
+  <li><strong>Limpiar Historial:</strong> Botón de vaciado de historial para iniciar un nuevo turno de ventas.</li>
+</ul>
+
+<h3>D. Pantalla: Configuración</h3>
+<p>Panel administrativo que permite cambiar la información del sistema:</p>
+<ul>
+  <li><strong>Gestionar Categorías:</strong> Opción para crear nuevas categorías o eliminar las existentes.</li>
+  <li><strong>Gestión de Productos (Tabla):</strong> Muestra toda la lista de productos disponibles en el POS.
+    <ul>
+      <li><strong>Nuevo Producto:</strong> Formulario rápido para definir Código, Nombre, Precio ($) y Categoría del producto.</li>
+      <li><strong>Editar:</strong> Modificar los datos de cualquier producto directamente desde la tabla y guardar.</li>
+      <li><strong>Eliminar:</strong> Borra el producto del catálogo.</li>
+      <li><strong>Restablecer:</strong> Restaura los productos de demostración iniciales.</li>
+    </ul>
+  </li>
+  <li><strong>Datos del Negocio:</strong> Configuración manual de la Tasa BCV general y del Cajero Activo.</li>
+</ul>
+
+<hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+
+<div class="feedback-container">
+  <div class="feedback-header">📝 ESPACIO PARA ESCRIBIR TUS COMENTARIOS Y CAMBIOS</div>
+  <p>Puedes editar este documento en Word y añadir todo lo que necesites cambiar. Cuando termines, copia lo que escribiste y compártelo conmigo para ponerme a trabajar en las actualizaciones.</p>
+  
+  <p><strong>1. ¿Qué cosas están fallando, se ven raras o te gustaría cambiar de diseño? (Errores / Ajustes Visuales):</strong></p>
+  <p style="color: #999999;"><em>(Escribe aquí, ej: "Quiero que el buscador sea más grande", "Cambiar el color naranja principal por rosado", etc.)</em></p>
+  <br><br><br>
+  
+  <p><strong>2. ¿Qué nuevas funciones, botones o datos te gustaría que tuviera el programa?:</strong></p>
+  <p style="color: #999999;"><em>(Escribe aquí, ej: "Quiero una opción para pagar en punto de venta / efectivo", "Agregar un botón para imprimir recibo", etc.)</em></p>
+  <br><br><br>
+  
+  <p><strong>3. Lista de tus productos reales (Nombres, precios y categorías):</strong></p>
+  <p style="color: #999999;"><em>(Escribe aquí la lista de tus pasteles y dulces reales para agregarlos al programa)</em></p>
+  <br><br><br>
+</div>
+
+</body>
+</html>

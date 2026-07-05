@@ -1,0 +1,58 @@
+======================================================================
+         RESUMEN DEL PROGRAMA DE TU WEB DE PASTELITOS
+======================================================================
+
+Este es un resumen muy sencillo del programa de ventas para tu pasteleria.
+Puedes abrir este archivo en cualquier computadora o celular para leerlo.
+Al final, he dejado un espacio para que escribas que cosas quieres cambiar,
+agregar o corregir. Luego me copias ese texto aqui en el chat.
+
+----------------------------------------------------------------------
+1. ¿QUE HACE EL PROGRAMA ACTUALMENTE?
+----------------------------------------------------------------------
+
+A. PANTALLA PRINCIPAL (TOMAR PEDIDO):
+* LISTA DE PASTELITOS: Muestra los productos con su foto/nombre y su precio en dolares ($).
+* BUSCADOR: Si escribes el nombre de un pastelito o su codigo, lo encuentra al instante.
+* CARRITO DE COMPRAS: A la derecha vas viendo los productos que vas seleccionando.
+* CALCULO DE TOTALES: Te dice la suma total tanto en Dolares ($) como en Bolivares (Bs.) segun la tasa del dia.
+* TASA BCV: Puedes cambiar la tasa del dia arriba en la pantalla y todo se calcula automaticamente.
+* SELECCIONAR VENDEDOR: Puedes elegir quien esta cobrando (Caja 1, Caja 2, Turno Tarde).
+* BOTON "COBRAR DIRECTO": Si el cliente paga de una vez, tocas este boton verde y la venta se guarda directamente en el dia, limpiando el carrito.
+* BOTON "GUARDAR PENDIENTE": Si el cliente va a pagar despues, escribes su nombre y lo guardas para cobrarlo luego.
+
+B. PANTALLA DE PEDIDOS PENDIENTES:
+* Aqui veras la lista de todos los clientes que tienen cuentas pendientes.
+* Tiene un boton de "Editar" para meter mas productos a su cuenta.
+* Tiene un boton de "Cobrar" para registrar el pago final.
+
+C. PANTALLA DE HISTORIAL Y CIERRE DE CAJA:
+* Te muestra la lista de todas las ventas del dia con la hora exacta y el cajero.
+* Te hace un resumen automatico de cuanto dinero ha hecho cada cajero en el dia.
+* Tiene un boton para vaciar el historial y comenzar un nuevo dia de trabajo.
+
+D. PANTALLA DE CONFIGURACION:
+* Aqui puedes agregar nuevos tipos de pastelitos, cambiarles el precio o eliminarlos.
+* Tambien puedes crear nuevas categorias (ejemplo: Tortas, Bebidas, Dulces).
+
+======================================================================
+2. ESCRIBE AQUI ABAJO LOS CAMBIOS QUE QUIERES HACER
+======================================================================
+
+Borra esto y escribe tus comentarios. Puedes responder estas preguntas:
+
+1. ¿Hay algo que no funcione bien o se vea feo? (Errores o diseño):
+R: 
+
+2. ¿Que botones o funciones nuevas te gustaria agregar?
+R: 
+
+3. Escribe aqui la lista de tus productos reales con sus precios:
+(Escribe el nombre del pastelito y cuanto cuesta en dolares)
+* 
+* 
+* 
+* 
+* 
+* 
+======================================================================
