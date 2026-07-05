@@ -434,21 +434,15 @@ app.get('/{*path}', (req, res) => {
   res.sendFile(join(distPath, 'index.html'));
 });
 
-// ─── Schema init (Vercel-safe) ──────────────────────────────
-
-let schemaInitPromise = ensureSchema().catch(e => console.error('Schema init error:', e));
-app.use(async (req, res, next) => {
-  await schemaInitPromise;
-  next();
-});
-
 // ─── Export & Start ───────────────────────────────────────────
 
 export default app;
 
-if (!process.env.VERCEL) {
-  const PORT = process.env.PORT || 3001;
-  app.listen(PORT, () => {
-    console.log(`AInova server running on port ${PORT}`);
-  });
-}
+const PORT = process.env.PORT || 3001;
+ensureSchema().then(() => {
+  if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+      console.log(`AInova server running on port ${PORT}`);
+    });
+  }
+}).catch(e => console.error('Schema error:', e));
