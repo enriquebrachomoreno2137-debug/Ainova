@@ -44,6 +44,7 @@ function App() {
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState('');
+  const [showMobileCart, setShowMobileCart] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [waitlist, setWaitlist] = useState([]);
   const [history, setHistory] = useState([]);
@@ -607,26 +608,26 @@ function App() {
       <div className="app-layout">
         <div className={`sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
           <div className="sidebar-nav">
-            <button className={`sidebar-nav-item ${currentView === 'pos' ? 'active' : ''}`} onClick={() => setCurrentView('pos')}>
+            <button className={`sidebar-nav-item ${currentView === 'pos' ? 'active' : ''}`} onClick={() => { setCurrentView('pos'); setShowMobileCart(false); }}>
               <ShoppingBag size={18} />
-              {sidebarOpen && <span>Pedido</span>}
+              <span>Pedido</span>
             </button>
-            <button className={`sidebar-nav-item ${currentView === 'waitlist' ? 'active' : ''}`} onClick={() => setCurrentView('waitlist')}>
+            <button className={`sidebar-nav-item ${currentView === 'waitlist' ? 'active' : ''}`} onClick={() => { setCurrentView('waitlist'); setShowMobileCart(false); }}>
               <Clock size={18} />
-              {sidebarOpen && <span>Pendientes</span>}
-              {sidebarOpen && waitlist.length > 0 && <span className="sidebar-badge">{waitlist.length}</span>}
+              <span>Pendientes</span>
+              {waitlist.length > 0 && <span className="sidebar-badge">{waitlist.length}</span>}
             </button>
-            <button className={`sidebar-nav-item ${currentView === 'history' ? 'active' : ''}`} onClick={() => setCurrentView('history')}>
+            <button className={`sidebar-nav-item ${currentView === 'history' ? 'active' : ''}`} onClick={() => { setCurrentView('history'); setShowMobileCart(false); }}>
               <HistoryIcon size={18} />
-              {sidebarOpen && <span>Historial</span>}
+              <span>Historial</span>
             </button>
-            <button className={`sidebar-nav-item ${currentView === 'users' ? 'active' : ''}`} onClick={() => setCurrentView('users')}>
+            <button className={`sidebar-nav-item ${currentView === 'users' ? 'active' : ''}`} onClick={() => { setCurrentView('users'); setShowMobileCart(false); }}>
               <Users size={18} />
-              {sidebarOpen && <span>Usuarios</span>}
+              <span>Usuarios</span>
             </button>
-            <button className={`sidebar-nav-item ${currentView === 'settings' ? 'active' : ''}`} onClick={() => setCurrentView('settings')}>
+            <button className={`sidebar-nav-item ${currentView === 'settings' ? 'active' : ''}`} onClick={() => { setCurrentView('settings'); setShowMobileCart(false); }}>
               <Settings size={18} />
-              {sidebarOpen && <span>Configuración</span>}
+              <span>Más</span>
             </button>
           </div>
           {sidebarOpen && (
@@ -637,6 +638,31 @@ function App() {
               </button>
             </div>
           )}
+        </div>
+
+        {/* Mobile bottom navigation */}
+        <div className="sidebar-mobile">
+          <button className={`sidebar-nav-item ${currentView === 'pos' ? 'active' : ''}`} onClick={() => { setCurrentView('pos'); setShowMobileCart(false); }}>
+            <ShoppingBag size={18} />
+            <span>Pedido</span>
+          </button>
+          <button className={`sidebar-nav-item ${currentView === 'waitlist' ? 'active' : ''}`} onClick={() => { setCurrentView('waitlist'); setShowMobileCart(false); }}>
+            <Clock size={18} />
+            <span>Pendientes</span>
+            {waitlist.length > 0 && <span className="sidebar-badge">{waitlist.length}</span>}
+          </button>
+          <button className={`sidebar-nav-item ${currentView === 'history' ? 'active' : ''}`} onClick={() => { setCurrentView('history'); setShowMobileCart(false); }}>
+            <HistoryIcon size={18} />
+            <span>Historial</span>
+          </button>
+          <button className={`sidebar-nav-item ${currentView === 'users' ? 'active' : ''}`} onClick={() => { setCurrentView('users'); setShowMobileCart(false); }}>
+            <Users size={18} />
+            <span>Usuarios</span>
+          </button>
+          <button className={`sidebar-nav-item ${currentView === 'settings' ? 'active' : ''}`} onClick={() => { setCurrentView('settings'); setShowMobileCart(false); }}>
+            <Settings size={18} />
+            <span>Más</span>
+          </button>
         </div>
 
         <div className="main-content">
@@ -770,6 +796,70 @@ function App() {
               </div>
             </div>
           </>
+        )}
+
+        {/* Mobile floating cart button */}
+        {currentView === 'pos' && (
+          <button className="mobile-cart-fab" onClick={() => setShowMobileCart(true)}>
+            <ShoppingCart size={24} />
+            {cart.length > 0 && <span className="mobile-cart-fab-badge">{cart.length}</span>}
+          </button>
+        )}
+
+        {/* Mobile full-screen cart overlay */}
+        {showMobileCart && (
+          <div className="mobile-cart-overlay">
+            <div className="cart-header">
+              <h2><ShoppingCart size={20} style={{display:'inline'}}/> Pedido Actual {cart.length > 0 && <span style={{color:'var(--text-light)', fontSize:'0.85rem'}}>({cart.length})</span>}</h2>
+              <button onClick={() => setShowMobileCart(false)}>✕</button>
+            </div>
+            <div className="cart-items">
+              {cart.length === 0 ? (
+                <div className="text-sm" style={{textAlign: 'center', marginTop: '2rem'}}>El carrito está vacío</div>
+              ) : (
+                cart.map(item => (
+                  <div key={item.product.id} className="cart-item animate-fade-in">
+                    <div style={{ flex: 1 }}>
+                      <div className="text-bold">{item.product.name}</div>
+                      <div className="text-sm">${item.product.price.toFixed(2)} c/u</div>
+                    </div>
+                    <div className="cart-item-actions">
+                      <button className="cart-item-btn" onClick={() => updateQuantity(item.product.id, -1)}><Minus size={16}/></button>
+                      <span style={{width:'28px', textAlign:'center', fontWeight:700}}>{item.quantity}</span>
+                      <button className="cart-item-btn" onClick={() => updateQuantity(item.product.id, 1)}><Plus size={16}/></button>
+                    </div>
+                    <div className="text-bold" style={{ width: '70px', textAlign: 'right' }}>
+                      ${(item.product.price * item.quantity).toFixed(2)}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="cart-footer">
+              <div className="text-sm text-light mb-2" style={{textAlign: 'center'}}>
+                <Warehouse size={14} style={{display:'inline'}}/> {warehouses.find(w => w.id === selectedWh)?.name || 'Almacén Principal'}
+              </div>
+              <div className="total-row">
+                <span>Total $</span>
+                <span>${cartTotalUSD.toFixed(2)}</span>
+              </div>
+              <div className="total-vef">Ref: Bs. {cartTotalBs.toFixed(2)}</div>
+              <div className="flex-col gap-2">
+                <input type="text" placeholder="Referencia o Cliente..." className="input w-full" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+                <button type="button" className="btn btn-success w-full" disabled={cart.length === 0} onClick={() => { handleDirectCheckout(); setShowMobileCart(false); }}>
+                  <DollarSign size={18} /> Cobrar Directo
+                </button>
+                <button type="button" className="btn btn-primary w-full" disabled={cart.length === 0} onClick={() => { putOnWait(); setShowMobileCart(false); }}>
+                  <Clock size={18} /> Guardar Pendiente
+                </button>
+                {cart.length > 0 && (
+                  <button type="button" className="btn btn-outline w-full" onClick={() => {setCart([]); setCustomerName(''); setShowMobileCart(false);}}>
+                    <Trash2 size={18} /> Cancelar y Vaciar
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         {currentView === 'waitlist' && (
