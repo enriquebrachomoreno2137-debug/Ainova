@@ -6,3 +6,5 @@ data.db-shm
 opencode.json
 start_server.vbs
 .vscode
+.env
+.vercel

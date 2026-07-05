@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
-import { getDb } from './database.js';
+import { getDb, ensureSchema } from './database.js';
 
 function toId(str) {
   return str.toLowerCase()
@@ -9,6 +9,7 @@ function toId(str) {
     .replace(/[óö]/g, 'o').replace(/[úü]/g, 'u').replace(/ñ/g, 'n')
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
+
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -16,7 +17,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -27,7 +27,7 @@ app.use(express.static(distPath));
 
 // ─── Auth Routes ───────────────────────────────────────────────
 
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
   const { username, password, name, orgType, orgName, location } = req.body;
   if (!username || !password || !name || !orgType || !orgName) {
     return res.status(400).json({ error: 'Todos los campos requeridos' });
@@ -37,8 +37,7 @@ app.post('/api/register', (req, res) => {
   }
 
   const db = getDb();
-
-  const existingUser = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+  const existingUser = (await db.execute("SELECT id FROM users WHERE username = ?", [username])).rows[0];
   if (existingUser) {
     return res.status(400).json({ error: 'Este usuario ya existe' });
   }
@@ -47,17 +46,16 @@ app.post('/api/register', (req, res) => {
   const userId = uuidv4();
   const token = uuidv4();
 
-  const createOrg = db.prepare('INSERT INTO organizations (id, type, name, location) VALUES (?, ?, ?, ?)');
-  const createUser = db.prepare('INSERT INTO users (id, username, password, name, org_id, phone) VALUES (?, ?, ?, ?, ?, ?)');
-  const createSession = db.prepare('INSERT INTO sessions (token, user_id, org_id, org_type, org_name, name) VALUES (?, ?, ?, ?, ?, ?)');
-
-  const transaction = db.transaction(() => {
-    createOrg.run(orgId, orgType, orgName, location || '');
-    createUser.run(userId, username, password, name, orgId, '');
-    createSession.run(token, userId, orgId, orgType, orgName, name);
-  });
-
-  transaction();
+  const tx = await db.transaction("write");
+  try {
+    await tx.execute("INSERT INTO organizations (id, type, name, location) VALUES (?, ?, ?, ?)", [orgId, orgType, orgName, location || '']);
+    await tx.execute("INSERT INTO users (id, username, password, name, org_id, phone) VALUES (?, ?, ?, ?, ?, ?)", [userId, username, password, name, orgId, '']);
+    await tx.execute("INSERT INTO sessions (token, user_id, org_id, org_type, org_name, name) VALUES (?, ?, ?, ?, ?, ?)", [token, userId, orgId, orgType, orgName, name]);
+    await tx.commit();
+  } catch (e) {
+    await tx.rollback();
+    return res.status(500).json({ error: 'Error al registrar' });
+  }
 
   res.json({
     success: true,
@@ -65,27 +63,25 @@ app.post('/api/register', (req, res) => {
   });
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
   }
 
   const db = getDb();
-  const user = db.prepare(`
-    SELECT u.id, u.username, u.name, u.org_id, u.phone, o.type as org_type, o.name as org_name
-    FROM users u
-    JOIN organizations o ON u.org_id = o.id
-    WHERE u.username = ? AND u.password = ?
-  `).get(username, password);
+  const user = (await db.execute(
+    "SELECT u.id, u.username, u.name, u.org_id, u.phone, o.type as org_type, o.name as org_name FROM users u JOIN organizations o ON u.org_id = o.id WHERE u.username = ? AND u.password = ?",
+    [username, password]
+  )).rows[0];
 
   if (!user) {
     return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
   }
 
   const token = uuidv4();
-  db.prepare('INSERT INTO sessions (token, user_id, org_id, org_type, org_name, name) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(token, user.id, user.org_id, user.org_type, user.org_name, user.name);
+  await db.execute("INSERT INTO sessions (token, user_id, org_id, org_type, org_name, name) VALUES (?, ?, ?, ?, ?, ?)",
+    [token, user.id, user.org_id, user.org_type, user.org_name, user.name]);
 
   res.json({
     success: true,
@@ -101,12 +97,12 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-app.post('/api/verify-session', (req, res) => {
+app.post('/api/verify-session', async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(401).json({ valid: false });
 
   const db = getDb();
-  const session = db.prepare('SELECT * FROM sessions WHERE token = ?').get(token);
+  const session = (await db.execute("SELECT * FROM sessions WHERE token = ?", [token])).rows[0];
   if (!session) return res.status(401).json({ valid: false });
 
   res.json({
@@ -124,14 +120,14 @@ app.post('/api/verify-session', (req, res) => {
 
 // ─── Auth Middleware ───────────────────────────────────────────
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
   const token = authHeader.slice(7);
   const db = getDb();
-  const session = db.prepare('SELECT * FROM sessions WHERE token = ?').get(token);
+  const session = (await db.execute("SELECT * FROM sessions WHERE token = ?", [token])).rows[0];
   if (!session) {
     return res.status(401).json({ error: 'Sesión inválida' });
   }
@@ -141,49 +137,49 @@ function authMiddleware(req, res, next) {
 
 // ─── Products Routes ──────────────────────────────────────────
 
-app.get('/api/products', authMiddleware, (req, res) => {
+app.get('/api/products', authMiddleware, async (req, res) => {
   const db = getDb();
-  const products = db.prepare('SELECT * FROM products WHERE org_id = ? ORDER BY name').all(req.session.org_id);
+  const products = (await db.execute("SELECT * FROM products WHERE org_id = ? ORDER BY name", [req.session.org_id])).rows;
   res.json(products);
 });
 
-app.post('/api/products', authMiddleware, (req, res) => {
+app.post('/api/products', authMiddleware, async (req, res) => {
   const { name, price, cost, code, category, minStock } = req.body;
   if (!name || price === undefined || parseFloat(price) <= 0) {
     return res.status(400).json({ error: 'Nombre y precio válido requeridos' });
   }
   const db = getDb();
   const id = uuidv4();
-  db.prepare('INSERT INTO products (id, org_id, code, name, price, cost, category, min_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(id, req.session.org_id, code || '', name, parseFloat(price), parseFloat(cost) || 0, category || 'General', parseInt(minStock) || 5);
+  await db.execute("INSERT INTO products (id, org_id, code, name, price, cost, category, min_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [id, req.session.org_id, code || '', name, parseFloat(price), parseFloat(cost) || 0, category || 'General', parseInt(minStock) || 5]);
   res.json({ success: true, id });
 });
 
-app.put('/api/products/:id', authMiddleware, (req, res) => {
+app.put('/api/products/:id', authMiddleware, async (req, res) => {
   const { name, price, cost, code, category, minStock } = req.body;
   const db = getDb();
-  const existing = db.prepare('SELECT * FROM products WHERE id = ? AND org_id = ?').get(req.params.id, req.session.org_id);
+  const existing = (await db.execute("SELECT * FROM products WHERE id = ? AND org_id = ?", [req.params.id, req.session.org_id])).rows[0];
   if (!existing) return res.status(404).json({ error: 'Producto no encontrado' });
 
-  db.prepare('UPDATE products SET name=?, price=?, cost=?, code=?, category=?, min_stock=? WHERE id=?')
-    .run(name, parseFloat(price), parseFloat(cost) || 0, code || '', category, parseInt(minStock) || 5, req.params.id);
+  await db.execute("UPDATE products SET name=?, price=?, cost=?, code=?, category=?, min_stock=? WHERE id=?",
+    [name, parseFloat(price), parseFloat(cost) || 0, code || '', category, parseInt(minStock) || 5, req.params.id]);
   res.json({ success: true });
 });
 
-app.delete('/api/products/:id', authMiddleware, (req, res) => {
+app.delete('/api/products/:id', authMiddleware, async (req, res) => {
   const db = getDb();
-  const existing = db.prepare('SELECT * FROM products WHERE id = ? AND org_id = ?').get(req.params.id, req.session.org_id);
+  const existing = (await db.execute("SELECT * FROM products WHERE id = ? AND org_id = ?", [req.params.id, req.session.org_id])).rows[0];
   if (!existing) return res.status(404).json({ error: 'Producto no encontrado' });
 
-  db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
+  await db.execute("DELETE FROM products WHERE id = ?", [req.params.id]);
   res.json({ success: true });
 });
 
 // ─── Seed (default data for new orgs) ─────────────────────────
 
-app.post('/api/seed', authMiddleware, (req, res) => {
+app.post('/api/seed', authMiddleware, async (req, res) => {
   const db = getDb();
-  const existing = db.prepare('SELECT COUNT(*) as count FROM products WHERE org_id = ?').get(req.session.org_id);
+  const existing = (await db.execute("SELECT COUNT(*) as count FROM products WHERE org_id = ?", [req.session.org_id])).rows[0];
   if (existing.count > 0) return res.json({ seeded: false, message: 'Ya tiene productos' });
 
   const PRODUCTS = [
@@ -215,21 +211,25 @@ app.post('/api/seed', authMiddleware, (req, res) => {
     { code:'026', name:'CAFECITO', price:0.50, cost:0, category:'Bebidas', min_stock:5 },
   ];
 
-  const insert = db.prepare('INSERT INTO products (id, org_id, code, name, price, cost, category, min_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-  const tx = db.transaction(() => {
+  const tx = await db.transaction("write");
+  try {
     for (const p of PRODUCTS) {
-      insert.run(uuidv4(), req.session.org_id, p.code, p.name, p.price, p.cost, p.category, p.min_stock);
+      await tx.execute("INSERT INTO products (id, org_id, code, name, price, cost, category, min_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [uuidv4(), req.session.org_id, p.code, p.name, p.price, p.cost, p.category, p.min_stock]);
     }
-  });
-  tx();
+    await tx.commit();
+  } catch (e) {
+    await tx.rollback();
+    return res.status(500).json({ error: 'Error al sembrar datos' });
+  }
   res.json({ seeded: true, count: PRODUCTS.length });
 });
 
 // ─── Inventory Routes ────────────────────────────────────────
 
-app.get('/api/inventory', authMiddleware, (req, res) => {
+app.get('/api/inventory', authMiddleware, async (req, res) => {
   const db = getDb();
-  const rows = db.prepare('SELECT * FROM inventory WHERE org_id = ?').all(req.session.org_id);
+  const rows = (await db.execute("SELECT * FROM inventory WHERE org_id = ?", [req.session.org_id])).rows;
   const map = {};
   for (const r of rows) {
     map[`${r.product_id}_${r.warehouse_id}`] = r.quantity;
@@ -237,90 +237,97 @@ app.get('/api/inventory', authMiddleware, (req, res) => {
   res.json(map);
 });
 
-app.post('/api/inventory', authMiddleware, (req, res) => {
+app.post('/api/inventory', authMiddleware, async (req, res) => {
   const db = getDb();
   const { product_id, warehouse_id, quantity } = req.body;
   if (!product_id) return res.status(400).json({ error: 'product_id requerido' });
   const wh = warehouse_id || 'wh_main';
   const qty = parseFloat(quantity) || 0;
-  const existing = db.prepare('SELECT * FROM inventory WHERE org_id = ? AND product_id = ? AND warehouse_id = ?')
-    .get(req.session.org_id, product_id, wh);
+  const existing = (await db.execute("SELECT * FROM inventory WHERE org_id = ? AND product_id = ? AND warehouse_id = ?",
+    [req.session.org_id, product_id, wh])).rows[0];
   if (existing) {
-    db.prepare('UPDATE inventory SET quantity = ? WHERE id = ?').run(qty, existing.id);
+    await db.execute("UPDATE inventory SET quantity = ? WHERE id = ?", [qty, existing.id]);
   } else {
     const id = uuidv4();
-    db.prepare('INSERT INTO inventory (id, org_id, product_id, warehouse_id, quantity) VALUES (?, ?, ?, ?, ?)')
-      .run(id, req.session.org_id, product_id, wh, qty);
+    await db.execute("INSERT INTO inventory (id, org_id, product_id, warehouse_id, quantity) VALUES (?, ?, ?, ?, ?)",
+      [id, req.session.org_id, product_id, wh, qty]);
   }
   res.json({ success: true });
 });
 
-app.post('/api/inventory/sync', authMiddleware, (req, res) => {
+app.post('/api/inventory/sync', authMiddleware, async (req, res) => {
   const db = getDb();
   const { inventory } = req.body;
   if (!inventory) return res.status(400).json({ error: 'inventory requerido' });
-  const upsert = db.prepare('INSERT INTO inventory (id, org_id, product_id, warehouse_id, quantity) VALUES (?, ?, ?, ?, ?) ON CONFLICT(org_id, product_id, warehouse_id) DO UPDATE SET quantity = excluded.quantity');
-  for (const [key, qty] of Object.entries(inventory)) {
-    const parts = key.split('_');
-    const wh = parts.slice(1).join('_') || 'wh_main';
-    upsert.run(uuidv4(), req.session.org_id, parts[0], wh, qty);
+
+  const tx = await db.transaction("write");
+  try {
+    for (const [key, qty] of Object.entries(inventory)) {
+      const parts = key.split('_');
+      const wh = parts.slice(1).join('_') || 'wh_main';
+      await tx.execute("INSERT INTO inventory (id, org_id, product_id, warehouse_id, quantity) VALUES (?, ?, ?, ?, ?) ON CONFLICT(org_id, product_id, warehouse_id) DO UPDATE SET quantity = excluded.quantity",
+        [uuidv4(), req.session.org_id, parts[0], wh, qty]);
+    }
+    await tx.commit();
+  } catch (e) {
+    await tx.rollback();
+    return res.status(500).json({ error: 'Error al sincronizar inventario' });
   }
   res.json({ success: true });
 });
 
-app.post('/api/inventory/entry', authMiddleware, (req, res) => {
+app.post('/api/inventory/entry', authMiddleware, async (req, res) => {
   const db = getDb();
   const { product_id, warehouse_id, quantity, cost } = req.body;
   if (!product_id || !quantity) return res.status(400).json({ error: 'product_id y quantity requeridos' });
   const wh = warehouse_id || 'wh_main';
   const qty = parseFloat(quantity);
-  const existing = db.prepare('SELECT * FROM inventory WHERE org_id = ? AND product_id = ? AND warehouse_id = ?')
-    .get(req.session.org_id, product_id, wh);
+  const existing = (await db.execute("SELECT * FROM inventory WHERE org_id = ? AND product_id = ? AND warehouse_id = ?",
+    [req.session.org_id, product_id, wh])).rows[0];
   if (existing) {
-    db.prepare('UPDATE inventory SET quantity = quantity + ? WHERE id = ?').run(qty, existing.id);
+    await db.execute("UPDATE inventory SET quantity = quantity + ? WHERE id = ?", [qty, existing.id]);
   } else {
     const id = uuidv4();
-    db.prepare('INSERT INTO inventory (id, org_id, product_id, warehouse_id, quantity) VALUES (?, ?, ?, ?, ?)')
-      .run(id, req.session.org_id, product_id, wh, qty);
+    await db.execute("INSERT INTO inventory (id, org_id, product_id, warehouse_id, quantity) VALUES (?, ?, ?, ?, ?)",
+      [id, req.session.org_id, product_id, wh, qty]);
   }
   const movId = uuidv4();
-  db.prepare('INSERT INTO movements (id, org_id, type, product_id, warehouse_id, qty, cost, reference, vendor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(movId, req.session.org_id, 'entrada', product_id, wh, qty, parseFloat(cost) || 0, 'Entrada manual', req.session.name);
+  await db.execute("INSERT INTO movements (id, org_id, type, product_id, warehouse_id, qty, cost, reference, vendor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [movId, req.session.org_id, 'entrada', product_id, wh, qty, parseFloat(cost) || 0, 'Entrada manual', req.session.name]);
   res.json({ success: true });
 });
 
 // ─── Sales Routes ────────────────────────────────────────────
 
-app.get('/api/sales', authMiddleware, (req, res) => {
+app.get('/api/sales', authMiddleware, async (req, res) => {
   const db = getDb();
-  const sales = db.prepare('SELECT * FROM sales WHERE org_id = ? ORDER BY checkout_time DESC').all(req.session.org_id);
+  const sales = (await db.execute("SELECT * FROM sales WHERE org_id = ? ORDER BY checkout_time DESC", [req.session.org_id])).rows;
   res.json(sales.map(s => ({ ...s, items: JSON.parse(s.items) })));
 });
 
-app.post('/api/sales', authMiddleware, (req, res) => {
+app.post('/api/sales', authMiddleware, async (req, res) => {
   const { customer_name, items, total_usd, total_bs, warehouse_id, is_direct } = req.body;
   if (!items) return res.status(400).json({ error: 'items requerido' });
   const db = getDb();
   const id = uuidv4();
-  db.prepare('INSERT INTO sales (id, org_id, customer_name, items, total_usd, total_bs, vendor, warehouse_id, is_direct, checkout_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(id, req.session.org_id, customer_name || 'Venta Directa', JSON.stringify(items), parseFloat(total_usd) || 0, parseFloat(total_bs) || 0, req.session.name, warehouse_id || 'wh_main', is_direct ? 1 : 0, new Date().toISOString());
+  await db.execute("INSERT INTO sales (id, org_id, customer_name, items, total_usd, total_bs, vendor, warehouse_id, is_direct, checkout_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [id, req.session.org_id, customer_name || 'Venta Directa', JSON.stringify(items), parseFloat(total_usd) || 0, parseFloat(total_bs) || 0, req.session.name, warehouse_id || 'wh_main', is_direct ? 1 : 0, new Date().toISOString()]);
   res.json({ success: true, id });
 });
 
 // ─── Movements Routes ────────────────────────────────────────
 
-app.get('/api/movements', authMiddleware, (req, res) => {
+app.get('/api/movements', authMiddleware, async (req, res) => {
   const db = getDb();
-  const movs = db.prepare('SELECT * FROM movements WHERE org_id = ? ORDER BY date DESC LIMIT 200').all(req.session.org_id);
+  const movs = (await db.execute("SELECT * FROM movements WHERE org_id = ? ORDER BY date DESC LIMIT 200", [req.session.org_id])).rows;
   res.json(movs);
 });
 
 // ─── Seed Test Data ──────────────────────────────────────────
 
-app.post('/api/seed-test-data', authMiddleware, (req, res) => {
+app.post('/api/seed-test-data', authMiddleware, async (req, res) => {
   const db = getDb();
 
-  // Replace ferremar products with hardware items
   const FERREMAR = [
     { code:'F001', name:'Martillo 500g', price:8.00, cost:0, category:'Herramientas', min_stock:5 },
     { code:'F002', name:'Destornillador Plano', price:3.50, cost:0, category:'Herramientas', min_stock:5 },
@@ -350,20 +357,15 @@ app.post('/api/seed-test-data', authMiddleware, (req, res) => {
     { code:'F026', name:'Cerradura Puerta', price:15.00, cost:0, category:'Seguridad', min_stock:3 },
   ];
 
-  // Delete old products for ferremar
-  db.prepare('DELETE FROM products WHERE org_id = ?').run('ferremar');
-  const insProd = db.prepare('INSERT INTO products (id, org_id, code, name, price, cost, category, min_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  await db.execute("DELETE FROM products WHERE org_id = ?", ['ferremar']);
   for (const p of FERREMAR) {
-    insProd.run(uuidv4(), 'ferremar', p.code, p.name, p.price, p.cost, p.category, p.min_stock);
+    await db.execute("INSERT INTO products (id, org_id, code, name, price, cost, category, min_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [uuidv4(), 'ferremar', p.code, p.name, p.price, p.cost, p.category, p.min_stock]);
   }
 
-  // Fetch all products per org for inventory seeding
-  const allProds = db.prepare('SELECT id, org_id, name FROM products').all();
-
-  // Helper to get products for an org
+  const allProds = (await db.execute("SELECT id, org_id, name FROM products")).rows;
   const prodsFor = (orgId) => allProds.filter(p => p.org_id === orgId);
 
-  // Seed inventory + sales for each org
   const seedData = {
     pasteleria_ainova: {
       stock: { qty: [50, 30, 40, 25, 35, 20, 15, 30, 20, 25, 10, 15, 20, 10, 12, 18, 25, 8, 15, 10, 5, 20, 8, 12, 10, 15] },
@@ -391,36 +393,37 @@ app.post('/api/seed-test-data', authMiddleware, (req, res) => {
     },
   };
 
-  const insInv = db.prepare('INSERT OR REPLACE INTO inventory (id, org_id, product_id, warehouse_id, quantity) VALUES (?, ?, ?, ?, ?)');
-  const insSale = db.prepare('INSERT INTO sales (id, org_id, customer_name, items, total_usd, total_bs, vendor, warehouse_id, is_direct, checkout_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-  const insMov = db.prepare('INSERT INTO movements (id, org_id, type, product_id, warehouse_id, qty, cost, reference, vendor, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-
-  const tx = db.transaction(() => {
+  const tx = await db.transaction("write");
+  try {
     for (const [orgId, data] of Object.entries(seedData)) {
       const prods = prodsFor(orgId);
       if (prods.length === 0) continue;
 
-      // Inventory
       prods.forEach((p, i) => {
         const qty = data.stock.qty[i] || 0;
         if (qty > 0) {
-          insInv.run(uuidv4(), orgId, p.id, 'wh_main', qty);
-          insMov.run(uuidv4(), orgId, 'entrada', p.id, 'wh_main', qty, 0, 'Stock inicial', 'admin', new Date(Date.now() - 86400000).toISOString());
+          tx.execute("INSERT OR REPLACE INTO inventory (id, org_id, product_id, warehouse_id, quantity) VALUES (?, ?, ?, ?, ?)",
+            [uuidv4(), orgId, p.id, 'wh_main', qty]);
+          tx.execute("INSERT INTO movements (id, org_id, type, product_id, warehouse_id, qty, cost, reference, vendor, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [uuidv4(), orgId, 'entrada', p.id, 'wh_main', qty, 0, 'Stock inicial', 'admin', new Date(Date.now() - 86400000).toISOString()]);
         }
       });
 
-      // Sales
       data.sales.forEach(sale => {
         const items = sale.items.map(item => {
           const prod = prods.find(p => p.name === item.name);
           return { product: { id: prod?.id || uuidv4(), name: item.name, price: item.price }, quantity: item.qty };
         });
         const usd = items.reduce((sum, i) => sum + i.quantity * i.product.price, 0);
-        insSale.run(uuidv4(), orgId, sale.customer, JSON.stringify(items), usd, usd * 36.5, 'admin', 'wh_main', 1, new Date(Date.now() - 3600000).toISOString());
+        tx.execute("INSERT INTO sales (id, org_id, customer_name, items, total_usd, total_bs, vendor, warehouse_id, is_direct, checkout_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [uuidv4(), orgId, sale.customer, JSON.stringify(items), usd, usd * 36.5, 'admin', 'wh_main', 1, new Date(Date.now() - 3600000).toISOString()]);
       });
     }
-  });
-  tx();
+    await tx.commit();
+  } catch (e) {
+    await tx.rollback();
+    return res.status(500).json({ error: 'Error al sembrar datos de prueba' });
+  }
 
   res.json({ success: true, message: 'Test data seeded for all orgs' });
 });
@@ -431,8 +434,15 @@ app.get('/{*path}', (req, res) => {
   res.sendFile(join(distPath, 'index.html'));
 });
 
-// ─── Start ────────────────────────────────────────────────────
+// ─── Export & Start ───────────────────────────────────────────
 
-app.listen(PORT, () => {
-  console.log(`AInova server running on port ${PORT}`);
-});
+export default app;
+
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 3001;
+  ensureSchema().then(() => {
+    app.listen(PORT, () => {
+      console.log(`AInova server running on port ${PORT}`);
+    });
+  });
+}
