@@ -269,7 +269,7 @@ function App() {
           alert(`Stock insuficiente. Disponible: ${getStock(productId, selectedWh)}`);
           return item;
         }
-        return newQ > 0 ? { ...item, quantity: newQ } : item;
+        return newQ <= 0 ? { ...item, quantity: 0 } : { ...item, quantity: newQ };
       }
       return item;
     }).filter(item => item.quantity > 0));
@@ -695,7 +695,7 @@ function App() {
                     <div key={p.id} className={`product-card ${outOfStock ? 'out-of-stock' : ''}`} onClick={() => addToCart(p)} style={outOfStock ? { opacity: 0.5 } : {}}>
                       <div className="text-bold text-center">{p.name}</div>
                       {p.code && <div className="text-center text-sm" style={{color: 'var(--text-light)', fontSize: '11px'}}>Cod: {p.code}</div>}
-                      <div className="text-center" style={{ color: 'var(--primary)', fontWeight: 'bold' }}>
+                      <div className="text-center product-price">
                         ${p.price.toFixed(2)}
                       </div>
                       <div className="text-center mt-2" style={{fontSize: '11px'}}>

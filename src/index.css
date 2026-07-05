@@ -391,6 +391,13 @@ body {
   min-height: 100px;
 }
 
+.product-card .product-price {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--primary);
+  margin: 0.25rem 0;
+}
+
 .product-card:hover {
   border-color: #0ea5e9;
   background: var(--surface-card);
@@ -872,8 +879,19 @@ tr:hover td {
   .topbar-business-badge,
   .topbar-user,
   .topbar-center,
-  .topbar-right .topbar-btn,
-  .topbar-right .topbar-control { display: none !important; }
+  .topbar-right .topbar-btn { display: none !important; }
+  /* Show only the rate control (first .topbar-control) on mobile */
+  .topbar-right .topbar-control:not(:first-child) { display: none !important; }
+  .topbar-right .topbar-control:first-child {
+    display: flex !important;
+    padding: 0.15rem 0.3rem;
+    font-size: 0.65rem;
+  }
+  .topbar-right .topbar-control:first-child input {
+    width: 48px;
+    font-size: 0.65rem;
+  }
+  .topbar-right .topbar-control:first-child svg { width: 12px; height: 12px; }
   .topbar-right { gap: 0.25rem; }
   .topbar-logout { padding: 0.3rem; font-size: 0; border: none; background: transparent; }
   .topbar-logout span { display: none; }
